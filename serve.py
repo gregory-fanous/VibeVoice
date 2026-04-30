@@ -227,7 +227,7 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
 
         voice_path = get_voice_path(req.voice)
         voice_name = os.path.splitext(os.path.basename(voice_path))[0]
-        script = build_single_speaker_script(req.input)
+        script = req.input.strip() if is_streaming_model else build_single_speaker_script(req.input)
         max_new_tokens = estimate_max_new_tokens(script)
         print(f"[TTS] voice={req.voice} → {voice_name} | {len(req.input)} chars | model={model_label} | max_new_tokens={max_new_tokens}")
 
