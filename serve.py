@@ -13,6 +13,7 @@ import argparse
 import copy
 import io
 import os
+import re
 import threading
 import time
 import wave
@@ -63,6 +64,8 @@ VOICES_DIR_STREAMING = os.path.join(BASE_DIR, "demo", "voices", "streaming_model
 # ---------------------------------------------------------------------------
 # Globals
 # ---------------------------------------------------------------------------
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 model = None
 processor = None
 device = None
@@ -176,10 +179,23 @@ class SpeechRequest(BaseModel):
 
 
 def estimate_max_new_tokens(text: str) -> int:
-    """Keep realtime generation from running to the model's 8192-token limit."""
-    # The realtime model normally needs a few dozen speech tokens for a short
-    # sentence. If EOS is missed, this cap prevents UI tests from hanging.
-    return min(900, max(160, len(text.strip()) * 5 + 80))
+    """Estimate enough tokens for one short-form TTS response without runaway audio."""
+    # One generated speech token is roughly 120-140 ms on the realtime model.
+    # Keep the cap tight because EOS can be missed, especially on MPS.
+    text_len = len(text.strip())
+    return min(120, max(42, int(text_len * 0.35) + 34))
+
+
+def build_single_speaker_script(text: str) -> str:
+    """Convert OpenAI-style plain text into a one-speaker VibeVoice script."""
+    lines = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        speaker_match = re.match(r"^Speaker\s+\d+\s*:\s*(.*)$", line, re.IGNORECASE)
+        lines.append(speaker_match.group(1).strip() if speaker_match else line)
+    return f"Speaker 1: {' '.join(lines)}"
 
 
 # ---------------------------------------------------------------------------
@@ -211,10 +227,9 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
 
         voice_path = get_voice_path(req.voice)
         voice_name = os.path.splitext(os.path.basename(voice_path))[0]
-        max_new_tokens = estimate_max_new_tokens(req.input)
+        script = build_single_speaker_script(req.input)
+        max_new_tokens = estimate_max_new_tokens(script)
         print(f"[TTS] voice={req.voice} → {voice_name} | {len(req.input)} chars | model={model_label} | max_new_tokens={max_new_tokens}")
-
-        script = f"Speaker 1: {req.input}"
 
         try:
             start = time.time()
@@ -242,6 +257,7 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
                         tokenizer=processor.tokenizer,
                         generation_config={"do_sample": False},
                         verbose=False,
+                        show_progress_bar=False,
                         all_prefilled_outputs=copy.deepcopy(cached_prompt),
                     )
                 else:
@@ -260,6 +276,7 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
                         tokenizer=processor.tokenizer,
                         generation_config={"do_sample": False},
                         verbose=False,
+                        show_progress_bar=False,
                     )
 
             elapsed = time.time() - start
