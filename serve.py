@@ -175,6 +175,13 @@ class SpeechRequest(BaseModel):
     response_format: Optional[str] = "wav"
 
 
+def estimate_max_new_tokens(text: str) -> int:
+    """Keep realtime generation from running to the model's 8192-token limit."""
+    # The realtime model normally needs a few dozen speech tokens for a short
+    # sentence. If EOS is missed, this cap prevents UI tests from hanging.
+    return min(900, max(160, len(text.strip()) * 5 + 80))
+
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
@@ -204,7 +211,8 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
 
         voice_path = get_voice_path(req.voice)
         voice_name = os.path.splitext(os.path.basename(voice_path))[0]
-        print(f"[TTS] voice={req.voice} → {voice_name} | {len(req.input)} chars | model={model_label}")
+        max_new_tokens = estimate_max_new_tokens(req.input)
+        print(f"[TTS] voice={req.voice} → {voice_name} | {len(req.input)} chars | model={model_label} | max_new_tokens={max_new_tokens}")
 
         script = f"Speaker 1: {req.input}"
 
@@ -229,7 +237,7 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
 
                     outputs = model.generate(
                         **inputs,
-                        max_new_tokens=None,
+                        max_new_tokens=max_new_tokens,
                         cfg_scale=1.5,
                         tokenizer=processor.tokenizer,
                         generation_config={"do_sample": False},
@@ -247,7 +255,7 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
                     )
                     outputs = model.generate(
                         **inputs,
-                        max_new_tokens=None,
+                        max_new_tokens=max_new_tokens,
                         cfg_scale=1.3,
                         tokenizer=processor.tokenizer,
                         generation_config={"do_sample": False},
