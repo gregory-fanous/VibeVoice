@@ -35,7 +35,7 @@ The model can synthesize speech up to **90 minutes** long with up to **4 distinc
 ### 🔥 News
 
 - **[2025-08-26] 🎉 We Open Source the [VibeVoice-7B-Preview](https://huggingface.co/WestZhang/VibeVoice-Large-pt) model weights!**
-- **[2025-08-28] 🎉 We provide a [Colab](https://colab.research.google.com/github/microsoft/VibeVoice/blob/main/demo/VibeVoice_colab.ipynb) script for easy access to our model. Due to GPU memory limitations, only VibeVoice-1.5B is supported.**
+- **[2025-08-28] 🎉 We provide a [Colab](https://colab.research.google.com/github/microsoft/VibeVoice/blob/main/demo/VibeVoice_colab.ipynb) script for easy access to our model. Due to GPU memory limitations, only vibevoice-1.5b is supported.**
 
 ### 📋 TODO
 
@@ -96,8 +96,8 @@ Try it on [Colab](https://colab.research.google.com/github/microsoft/VibeVoice/b
 ## Models
 | Model | Context Length | Generation Length |  Weight |
 |-------|----------------|----------|----------|
-| VibeVoice-0.5B-Streaming | - | - | On the way |
-| VibeVoice-1.5B | 64K | ~90 min | [HF link](https://huggingface.co/microsoft/VibeVoice-1.5B) |
+| vibevoice-1.5b-Streaming | - | - | On the way |
+| vibevoice-1.5b | 64K | ~90 min | [HF link](https://huggingface.co/microsoft/vibevoice-1.5b) |
 | VibeVoice-7B-Preview| 32K | ~45 min | [HF link](https://huggingface.co/WestZhang/VibeVoice-Large-pt) |
 
 ## Installation
@@ -131,14 +131,14 @@ We observed users may encounter occasional instability when synthesizing Chinese
 - Using the 7B model variant, which is considerably more stable.
 - If you found the generated voice speak too fast. Please try to chunk your text with multiple speaker turns with same speaker label.
 
-We'd like to thank [PsiPi](https://huggingface.co/PsiPi) for sharing an interesting way for emotion control. Detials can be found via [discussion12](https://huggingface.co/microsoft/VibeVoice-1.5B/discussions/12).
+We'd like to thank [PsiPi](https://huggingface.co/PsiPi) for sharing an interesting way for emotion control. Detials can be found via [discussion12](https://huggingface.co/microsoft/vibevoice-1.5b/discussions/12).
 
 ### Usage 1: Launch Gradio demo
 ```bash
 apt update && apt install ffmpeg -y # for demo
 
 # For 1.5B model
-python demo/gradio_demo.py --model_path microsoft/VibeVoice-1.5B --share
+python demo/gradio_demo.py --model_path microsoft/vibevoice-1.5b --share
 
 # For 7B model
 python demo/gradio_demo.py --model_path WestZhang/VibeVoice-Large-pt --share

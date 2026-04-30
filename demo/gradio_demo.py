@@ -54,21 +54,21 @@ class VibeVoiceDemo:
         )
         
         # Load model
+        device_map = "auto" if self.device in ("mps", "cpu") else self.device
         try:
             self.model = VibeVoiceForConditionalGenerationInference.from_pretrained(
                 self.model_path,
                 torch_dtype=torch.bfloat16,
-                device_map='cuda',
+                device_map=device_map,
                 attn_implementation='flash_attention_2' # flash_attention_2 is recommended
             )
         except Exception as e:
             print(f"[ERROR] : {type(e).__name__}: {e}")
-            print(traceback.format_exc())
             print("Error loading the model. Trying to use SDPA. However, note that only flash_attention_2 has been fully tested, and using SDPA may result in lower audio quality.")
             self.model = VibeVoiceForConditionalGenerationInference.from_pretrained(
                 self.model_path,
                 torch_dtype=torch.bfloat16,
-                device_map='cuda',
+                device_map=device_map,
                 attn_implementation='sdpa'
             )
         self.model.eval()
@@ -1127,13 +1127,13 @@ def parse_args():
     parser.add_argument(
         "--model_path",
         type=str,
-        default="/tmp/vibevoice-model",
-        help="Path to the VibeVoice model directory",
+        default="microsoft/vibevoice-0.5b",
+        help="HuggingFace model ID or local path to the VibeVoice model",
     )
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda" if torch.cuda.is_available() else "cpu",
+        default="cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu"),
         help="Device for inference",
     )
     parser.add_argument(
