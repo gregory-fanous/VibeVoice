@@ -300,7 +300,14 @@ class VibeVoiceForConditionalGenerationInference(VibeVoicePreTrainedModel, Gener
         )
 
         max_cache_length = generation_config.max_length - 1
-        self._prepare_cache_for_generation(generation_config, model_kwargs, None, batch_size, max_cache_length, device)
+        import inspect
+        _cache_params = inspect.signature(self._prepare_cache_for_generation).parameters
+        if len(_cache_params) >= 6:
+            # transformers < 4.57
+            self._prepare_cache_for_generation(generation_config, model_kwargs, None, batch_size, max_cache_length, device)
+        else:
+            # transformers >= 4.57 (dropped device param)
+            self._prepare_cache_for_generation(generation_config, model_kwargs, None, batch_size, max_cache_length)
         model_kwargs['cache_position'] = torch.arange(input_ids_length, device=device, dtype=torch.long)
         for k, v in model_kwargs.items():
             if isinstance(v, torch.Tensor):

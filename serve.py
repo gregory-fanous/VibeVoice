@@ -46,6 +46,10 @@ VOICE_MAP = {
     "mike": "en-Mike_man",
     "davis": "en-Davis_man",
     "samuel": "in-Samuel_man",
+    "shubham": "in-Shubham_man",
+    "salman": "in-Salman_man",
+    "rohan": "in-Rohan_man",
+    "mansi": "in-Mansi_woman",
     "mary": "en-Mary_woman_bgm",
     # gpt-4o-mini-tts voices
     "marin": "en-Emma_woman",
@@ -179,11 +183,39 @@ class SpeechRequest(BaseModel):
 
 
 def estimate_max_new_tokens(text: str) -> int:
-    """Estimate enough tokens for one short-form TTS response without runaway audio."""
-    # One generated speech token is roughly 120-140 ms on the realtime model.
-    # Keep the cap tight because EOS can be missed, especially on MPS.
+    """Estimate enough tokens for one TTS response without runaway audio."""
+    # One generated speech token is roughly 120-140 ms on the realtime model,
+    # ~80-100ms on 1.5B. Allow generous headroom so sentences don't cut off.
     text_len = len(text.strip())
-    return min(120, max(42, int(text_len * 0.35) + 34))
+    if is_streaming_model:
+        # 0.5B: ~8 tokens per word, avg word ~5 chars → ~1.6 tokens/char
+        # Plus headroom for pauses and prosody
+        return min(500, max(60, int(text_len * 0.8) + 60))
+    else:
+        # 1.5B: more generous, better quality with room to breathe
+        return min(600, max(80, int(text_len * 0.9) + 80))
+
+
+def sanitize_tts_text(text: str) -> str:
+    """Strip markdown and special characters that confuse the TTS model."""
+    t = text
+    # Remove inline code blocks: `code` → code
+    t = re.sub(r'`([^`]*)`', r'\1', t)
+    # Remove fenced code blocks
+    t = re.sub(r'```[\s\S]*?```', '', t)
+    # Remove markdown bold/italic: **text** → text, *text* → text
+    t = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', t)
+    # Remove markdown links: [text](url) → text
+    t = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', t)
+    # Remove markdown headings: ### Heading → Heading
+    t = re.sub(r'^#{1,6}\s+', '', t, flags=re.MULTILINE)
+    # Replace URLs with spoken form
+    t = re.sub(r'https?://\S+', 'the URL shown on screen', t)
+    # Remove remaining special chars that aren't punctuation
+    t = re.sub(r'[<>{}|\\~^]', '', t)
+    # Collapse multiple spaces
+    t = re.sub(r'\s+', ' ', t).strip()
+    return t
 
 
 def build_single_speaker_script(text: str) -> str:
@@ -227,7 +259,8 @@ def create_app(model_path: str, dev: str, num_steps: int) -> FastAPI:
 
         voice_path = get_voice_path(req.voice)
         voice_name = os.path.splitext(os.path.basename(voice_path))[0]
-        script = req.input.strip() if is_streaming_model else build_single_speaker_script(req.input)
+        clean_input = sanitize_tts_text(req.input)
+        script = clean_input.strip() if is_streaming_model else build_single_speaker_script(clean_input)
         max_new_tokens = estimate_max_new_tokens(script)
         print(f"[TTS] voice={req.voice} → {voice_name} | {len(req.input)} chars | model={model_label} | max_new_tokens={max_new_tokens}")
 
